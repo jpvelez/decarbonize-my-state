@@ -40,9 +40,9 @@ const IndexPage = ({data}) => {
           <source src="/video/fog_over_forest.mp4" type="video/mp4" />
         </video>
 
-          <p className="h3 text-center mt-4">
-            The answer is less complicated than you think.
-          </p>
+        <p className="h3 text-center mt-4">
+          The answer is less complicated than you think.
+        </p>
       </div>
 
       <hr></hr>
