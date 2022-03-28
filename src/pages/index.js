@@ -30,25 +30,36 @@ const IndexPage = ({data}) => {
   return (
     <Layout>
       <SEO title="What does it take to decarbonize your state?" />
+      <div className="main-header-container">
+        <div className="main-header">
+          <h1 className='display-4 text-center font-weight-bold'>
+            What does it take<br/> to <span className="outlined-text">decarbonize</span> <br/> your state?
+          </h1>
+        </div>
+        <video autoPlay muted loop className="hero-video">
+          <source src="/video/fog_over_forest.mp4" type="video/mp4" />
+        </video>
 
-      <div className="main-header">
-        <h1 className='display-4 text-center font-weight-bold'>
-          What does it take to<br className="d-none d-lg-block"/>
-          decarbonize your state?
-        </h1>
-        <p className="h3 text-center mt-4">
-          The answer is less complicated than you think.
-        </p>
+          <p className="h3 text-center mt-4">
+            The answer is less complicated than you think.
+          </p>
       </div>
 
       <hr></hr>
+      <div className="container bg-light position-sticky">
+        <div className="row">
+          <div className="col-md-3">
+            <p className="h4 mt-5 mb-5">
+              To get to <strong>zero</strong> by 2050, the US must <br className="d-none d-lg-block" />
+              cut climate pollution by <strong>{cutPerYearPrcnt}% a year.</strong>
+            </p>
+          </div>
+          <div className="col-md-9">
+            <StackedBarChart emissions_data={us_emissions}/>
+          </div>
+        </div>
+      </div>
 
-      <p className="h1 mt-5 mb-5 text-center">
-        To get to <strong>zero</strong> by 2050, the US must <br className="d-none d-lg-block" />
-        cut climate pollution by <strong>{cutPerYearPrcnt} a year.</strong>
-      </p>
-
-      <StackedBarChart emissions_data={us_emissions}/>
 
       <p className='h2 text-center mt-5 mb-5'>
         When it comes to solving the climate crisis there's one main thing
