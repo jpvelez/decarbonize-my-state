@@ -11,7 +11,7 @@ import {
   Label
 } from "recharts"
 
-export default function SimpleAreaChart ({emissions_data}) {
+function SimpleAreaChart ({emissions_data}) {
 
   const annualhistoricalEmissions = emissions_data.map((item) => {
     var data = { year: item.year, hist: 0 }
@@ -76,3 +76,5 @@ export default function SimpleAreaChart ({emissions_data}) {
     </ResponsiveContainer>
   )
 }
+
+export default React.memo(SimpleAreaChart)
