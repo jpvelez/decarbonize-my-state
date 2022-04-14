@@ -1,67 +1,11 @@
-import React, { useState } from "react"
-import StackedBarChart from "../components/stackedbar"
-import ChoroplethMap from "../components/choroplethmap"
-import 'react-bootstrap-table-next/dist/react-bootstrap-table2.min.css'
-
+import React from "react"
 import { graphql } from "gatsby"
-
+import 'react-bootstrap-table-next/dist/react-bootstrap-table2.min.css'
+import SingleBarChart from "../components/singlebar"
 import Layout from "../components/layout"
 import SEO from "../components/seo"
-import get_2018_emissions from "../components/get_2018_emissions"
+import SimpleAreaChart from "../components/simpleareachart"
 
-const places = [
-  "alabama",
-  "alaska",
-  "arizona",
-  "arkansas",
-  "california",
-  "colorado",
-  "connecticut",
-  "delaware",
-  "district_of_columbia",
-  "florida",
-  "georgia",
-  "hawaii",
-  "idaho",
-  "illinois",
-  "indiana",
-  "iowa",
-  "kansas",
-  "kentucky",
-  "louisiana",
-  "maine",
-  "maryland",
-  "massachusetts",
-  "michigan",
-  "minnesota",
-  "mississippi",
-  "missouri",
-  "montana",
-  "nebraska",
-  "nevada",
-  "new_hampshire",
-  "new_jersey",
-  "new_mexico",
-  "new_york",
-  "north_carolina",
-  "north_dakota",
-  "ohio",
-  "oklahoma",
-  "oregon",
-  "pennsylvania",
-  "rhode_island",
-  "south_carolina",
-  "south_dakota",
-  "tennessee",
-  "texas",
-  "utah",
-  "vermont",
-  "virginia",
-  "washington",
-  "west_virginia",
-  "wisconsin",
-  "wyoming"
-]
 
 const slugToTitle = (placeName) => {
   const words = placeName.split('_')
@@ -78,55 +22,72 @@ const slugToTitle = (placeName) => {
   return words.join(' ')
 }
 
-const getPlacesData = (data) => {
-  const allPlacesData = {}
-  places.forEach((place, i) => {
-    const placeTitle = slugToTitle(place)
-    allPlacesData[place] = {}
-    allPlacesData[place]['name'] = placeTitle
-
-    // grab the state total employed from totals
-    allPlacesData[place]['emissions'] = data[place]
-  })
-  return allPlacesData
-}
-
 const currentYear = new Date().getFullYear()
-
 // We want to get to 0 by 2050 and we use our current emissions as a start,
 // so the % to cut by is 100 divided by the number of years we have
 const cutPerYearPrcnt = (100 / (2050 - currentYear)).toFixed(1)
 
 const StateDetailsPage = ({location, data}) => {
+  // place info and string
   const currentPlace = location.pathname.split("/")[1]
-  const countryEmissions = get_2018_emissions(data.emissionsJson)
-  const placesData = getPlacesData(data.emissionsJson)
+  // clean up title as needed
+  const placeTitle = slugToTitle(currentPlace)
+  const stateFaceClass = currentPlace.toLowerCase().replaceAll(' ', '-')
 
-  const currPlaceData = placesData[currentPlace]
+  // Each json loads in as an allSomethingJson and is filtered for 
+  // data relevant to this state, which is great!
+  // the first edge node will have the relevant data, 
+  // so we can just take the first index
 
-  let buildingsPrcnt, powerPrcnt, transportPrcnt
+  // #### EMISSIONS #### 
+  const emissionsByYear = data.allEmissionsJson.edges[0].node.emissionsByYear
+  const latestEmissions = emissionsByYear[emissionsByYear.length - 1]
+  // desstructure out the different emissions categories for simplicity below
+  const {
+    buildings: buildingsEmissions,
+    dirty_power: dirtyPowerEmissions,
+    dumps_farms_industrial_other: farmsDumpsOtherEmissions,
+    transportation: transportionEmissions
+  } = latestEmissions
+  
+  // sum, then make nice percentages
+  const sumOfEmissions = buildingsEmissions + dirtyPowerEmissions + farmsDumpsOtherEmissions + transportionEmissions
+  const buildingsPrcnt = (buildingsEmissions / sumOfEmissions * 100).toFixed(0)
+  const powerPrcnt = (dirtyPowerEmissions / sumOfEmissions * 100).toFixed(0)
+  const transportPrcnt = (transportionEmissions / sumOfEmissions * 100).toFixed(0)
+  const otherPrcnt = (farmsDumpsOtherEmissions / sumOfEmissions * 100).toFixed(0)
 
-  // NOTE: We don't have emissions for all states (like Guam)
-  const placeAllEmissions = currPlaceData.emissions
+  
+  // #### VEHICLES #### 
+  const {
+    Cars_All: carsAll,
+    EV_Registration: evRegistration,
+  } = data.allVehiclesJson.edges[0].node
 
-  if (placeAllEmissions) {
-    // Get the last year of emissions data we have to use for showing the
-    // breakdown of how much emission comes from each source in this state
-    const placeEmissions = placeAllEmissions[placeAllEmissions.length - 1]
+  // string formatting
+  const carsCountStr = carsAll !== undefined 
+    ? carsAll.toLocaleString('en') 
+    : '?'
+  const carsPerYear = carsAll !== undefined 
+    ? Math.ceil(carsAll * cutPerYearPrcnt / 100).toLocaleString('en') 
+    : '?'
+  const evCountStr = evRegistration !== undefined 
+    ? evRegistration.toLocaleString('en') 
+    : '?'
 
-    const totalLatestEmissions = placeEmissions.buildings +
-      placeEmissions.dirty_power +
-      placeEmissions.dumps_farms_industrial_other +
-      placeEmissions.transportation
+  // #### BUILDINGS ####
+  const {
+    buildings
+  } = data.allBuildingsJson.edges[0].node
 
-    buildingsPrcnt = (placeEmissions.buildings / totalLatestEmissions * 100).toFixed(1)
-    powerPrcnt = (placeEmissions.dirty_power / totalLatestEmissions * 100).toFixed(1)
-    transportPrcnt = (placeEmissions.transportation / totalLatestEmissions * 100).toFixed(1)
-  }
+  // string formatting
+  const buildingsCountStr = buildings !== undefined
+    ? buildings.toLocaleString('en')
+    : '?'
+  const buildingsPerYear = buildings !== undefined
+    ? Math.ceil(buildings * cutPerYearPrcnt / 100).toLocaleString('en')
+    : '?'
 
-  const placeTitle = currPlaceData.name
-
-  const [placeData, setPlaceData] = useState(currPlaceData)
 
   return (
     <Layout>
@@ -134,14 +95,14 @@ const StateDetailsPage = ({location, data}) => {
 
       <a className="btn btn-outline-secondary mb-5" href="/">Back to map</a>
 
-      <div className='col-6'>
+      <div className='col-12'>
         <h1 className='display-4 d-flex align-items-center mr-4 mb-3 font-weight-bold'>
-          <span className={ 'display-2 mr-4 sf-' + placeData.name.toLowerCase() } aria-hidden="true"></span>
-          {placeData.name}
+          <span className={ 'display-2 mr-4 sf-' + stateFaceClass } aria-hidden="true"></span>
+          { placeTitle }
         </h1>
       </div>
 
-      { !placeData.emissions }
+      {/* { !placeData.emissions } */}
 
       {/* Intro Section */}
       <div className='col-12'>
@@ -150,12 +111,14 @@ const StateDetailsPage = ({location, data}) => {
           must cut climate pollution by <strong className="font-weight-bold">{cutPerYearPrcnt}% a year.</strong>
         </p>
 
+        <h4>Metric tons of carbon dioxide equivalent (MTCO2e) emissions</h4>
+        <SimpleAreaChart emissions_data={emissionsByYear}/>
+
         <p className="h4 font-weight-bold">Emissions in {placeTitle}</p>
         <p className="h6 text-muted">
           Metric tons of carbon dioxide equivalent (MTCO2e) emissions
         </p>
-        <StackedBarChart emissions_data={placeData.emissions}/>
-
+  
         <p className="h1 font-weight-bold text-center mt-5">We can do it. Here's how.</p>
 
         <hr className="mt-5"/>
@@ -166,51 +129,62 @@ const StateDetailsPage = ({location, data}) => {
         <h2 className="h3 mt-5 font-weight-bold">Buildings</h2>
 
         <p className="h3 mt-5">
-          <strong className="font-weight-bold">{buildingsPrcnt}%</strong> of emissions in {placeTitle} comes from buildings.
+          <strong className="font-weight-bold">{buildingsPrcnt}%</strong> of
+          emissions in {placeTitle} comes from buildings.
         </p>
 
-        <p className="h4 mt-5 text-muted">
-          [insert state emissions graph highlighting buildings]
-        </p>
+        <div className="row mt-5">
+          { /* Make SingleBarChart full width on mobile */ }
+          <div className="col-12-med">
+            <SingleBarChart
+              emissionsData={latestEmissions}
+              activeKey='buildings' />
+          </div>
 
-        <p>
-          Mostly from heating them.
+          <div className="col h3">
+            <p className="mt-5">
+              Mostly from heating them.
+            </p>
 
-          ?% of the pollution of your typical home comes from heating your space, water, and food.
-        </p>
+            <p className="mt-5">
+              ?% of the pollution of your typical home comes from heating your
+              space, water, and food.
+            </p>
+          </div>
+        </div>
 
         <p className="h3 mt-5">
           To stop this pollution, we need to electrify our furnaces, water boilers, and stoves.
         </p>
 
         <p className="h3 mt-5">
-          And we need to do this for all ? buildings in {placeTitle}<br/>
-          (That's around ? per year)
+          And we need to do this for all {buildingsCountStr} buildings in {placeTitle} (That's around {buildingsPerYear} per year)
         </p>
 
-        <p className="h3 mt-5">
+        <p className="h3 mt-7 font-weight-bold text-center">
           That will solve {buildingsPrcnt}% of the problem.
         </p>
 
-        <p className="h4 mt-5 text-muted">
-          [insert state emissions graph highlighting buildings]
-        </p>
-
-        <div className="action-panel">
-          <h3 className="h4 font-weight-bold">What should I do?</h3>
-
-          {/* TODO: Make these link somewhere */}
-          <ul className="mt-3 pl-4 mb-0">
-            <li>
-              <a href="http://example.com">First, electrify your building(s)</a>
-            </li>
-            <li>
-              <a href="http://example.com">
-                Then push your local politicians to electrify the rest
-              </a>
-            </li>
-          </ul>
+        <div className="mt-5 d-flex justify-content-center">
+          <SingleBarChart
+            emissionsData={latestEmissions}
+            greenKeys={ [ 'buildings' ] } />
         </div>
+
+        {/* TODO: Make these link somewhere */}
+        <ul className="mt-3 pl-4 mb-0">
+          <li>
+            <a href="http://example.com">First, electrify your building(s)</a>
+          </li>
+          <li>
+            <a href="http://example.com">
+                Then push your local politicians to electrify the rest
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div className='col-12 col-lg-8'>
+          
 
         <hr className="mt-5"/>
       </div>
@@ -220,31 +194,44 @@ const StateDetailsPage = ({location, data}) => {
         <h2 className="h3 mt-5 font-weight-bold">Getting Around</h2>
 
         <p className="h3 mt-5">
-          <strong className="font-weight-bold">{transportPrcnt}%</strong> of emissions in {placeTitle} comes from cars, trucks, and planes.
+          <strong className="font-weight-bold">{transportPrcnt}%</strong> of
+          emissions in {placeTitle} comes from cars, trucks, and planes.
         </p>
 
-        <p className="h4 mt-5 text-muted">
-          [insert state emissions graph highlighting transportation]
+        <div className="row mt-5">
+          { /* Make SingleBarChart full width on mobile */ }
+          <div className="col-12-med">
+            <SingleBarChart
+              emissionsData={latestEmissions}
+              activeKey='transportation' />
+          </div>
+
+          <div className="col h3">
+            <p className="mt-5">
+              Mostly from our cars.
+            </p>
+
+            <p className="mt-5">
+              To cut this pollution, replace your car with an EV.
+            </p>
+
+            <p className="mt-5">
+              And we need to do this for all {carsCountStr} cars 
+              in {placeTitle} (That's around {carsPerYear} a year. 
+              Excluding the {evCountStr} EVs already in {placeTitle})
+            </p>
+          </div>
+        </div>
+
+        <p className="h3 mt-7 font-weight-bold text-center">
+          That will solve another {transportPrcnt}% of the problem.
         </p>
 
-        <p>Mostly from our cars</p>
-
-        <p className="h3 mt-5">
-          To cut this pollution, replace your car with an EV.
-        </p>
-
-        <p className="h3 mt-5">
-          And we need to do this for all ? cars in {placeTitle}<br/>
-          (That's around ? a year.)
-        </p>
-
-        <p className="h3 mt-5">
-          That will solve {transportPrcnt}% of the problem.
-        </p>
-
-        <p className="h4 mt-5 text-muted">
-          [insert state emissions graph highlighting transportation]
-        </p>
+        <div className="mt-5 d-flex justify-content-center">
+          <SingleBarChart
+            emissionsData={latestEmissions}
+            greenKeys={[ 'buildings', 'transportation' ]} />
+        </div>
 
         <div className="action-panel">
           <h3 className="h4 font-weight-bold">What should I do?</h3>
@@ -271,459 +258,222 @@ const StateDetailsPage = ({location, data}) => {
       <div className='col-12'>
         <h2 className="h3 mt-5 font-weight-bold">Power Generation</h2>
 
-        <p className="h3 mt-5">
-          <strong className="font-weight-bold">{powerPrcnt}%</strong> of emissions in {placeTitle} comes from making power.
-        </p>
 
-        <p className="h4 mt-5 text-muted">
-          [insert state emissions graph highlighting power]
-        </p>
+        {
+          // Show special section if power emissions are zero
+          powerPrcnt === '0' &&
+          <div className="mt-8 mb-8 text-center">
+            <p className="h3 font-weight-bold">
+              {placeTitle} has no emissions from making power,
+              it's doing great! 😎
+            </p>
 
-        <p className="h3 mt-5">
-          Specifically from coal and gas plants.
-        </p>
+            <p className="h5 mt-3">
+              Check out another state to see how they can cut their power
+              emissions to zero.
+            </p>
+          </div>
+        }
+        { powerPrcnt > 0 && <HowToCleanPowerSection
+          latestEmissions={latestEmissions}
+          placeTitle={placeTitle}
+          powerPrcnt={powerPrcnt} /> }
 
-        <p className="h3 mt-5">
-          To cut this pollution, we need to replace dirty power plants with
-          clean ones. (mostly wind and solar)
-        </p>
+        <hr className="mt-5"/>
+      </div>
 
-        <p className="h3 mt-5">
-          And we need to do this for all <strong className="font-weight-bold">? coal plants in {placeTitle}</strong>
-        </p>
-
-        <p className="h3 mt-5">
-          ...and all <strong className="font-weight-bold">? gas plants</strong>.
-        </p>
-
-        <p className="h3 mt-5">
-          ...and help those workers find good jobs.
-        </p>
-
-        <p className="h3 mt-5">
-          But wait! Remember how we electrified all cars and buildings?
-        </p>
+      {/* Other Section */}
+      <div className='col-12'>
+        <h2 className="h3 mt-5 font-weight-bold">Other Emissions</h2>
 
         <p className="h3 mt-5">
-          Our machines don't pollute now, because they run on electricity!
+          The last <strong className="font-weight-bold">{otherPrcnt}%</strong> of
+          emissions in {placeTitle} comes other sources
         </p>
 
-        <p className="h3 mt-5">
-          But that means we need to make more power for those new electric
-          machines - <strong className="font-weight-bold">twice</strong> as much power as we make now!
-        </p>
+        <div className="row mt-5">
+          { /* Make SingleBarChart full width on mobile */ }
+          <div className="col-12-med">
+            <SingleBarChart
+              emissionsData={latestEmissions}
+              activeKey='dumps_farms_industrial_other' />
+          </div>
 
-        <p className="h3 mt-5">
-          And <strong className="font-weight-bold">all of it needs to be clean power!</strong>
-        </p>
+          <div className="col">
+            <p className="h3 mt-5">
+              This includes industry, landfills, and farming.
+            </p>
 
-        <p className="h3 mt-5">
-          So to cut the climate pollution from our power, cars, and buildings we need to BUILD ? wind and solar farms. <br/>
-          (That's ? a year)
-        </p>
+            <p className="mt-3">
+              There's no one solution to solve these problems, but there are a
+              lot of great ideas!
+            </p>
 
-        <p className="h4 mt-5 text-muted">
-          [insert animated map here]
-        </p>
+            <p>
+              These include:
+            </p>
 
-
-        <p className="h3 mt-5">
-          That will solve {powerPrcnt}% of the problem.
-        </p>
-
-        <p className="h4 mt-5 text-muted">
-          [insert state emissions graph highlighting power]
-        </p>
-
-        <div className="action-panel">
-          <h3 className="h4 font-weight-bold">What should I do?</h3>
-
-          {/* TODO: Make these link somewhere */}
-          <ul className="mt-3 pl-4 mb-0">
-            <li>
-              <a href="http://example.com">Install solar panels and a battery in your building</a>
-            </li>
-            <li>
-              <a href="http://example.com">
-                Support the construction of grid-scale wind and solar
-              </a>
-            </li>
-          </ul>
+            <ul>
+              <li>Regenerative agriculture to sequester carbon in soil</li>
+              <li>Composting to reduce landfill methane emissions</li>
+              <li>
+                New techniques for manufacturing
+                CO<sub>2</sub> emitting materials, like concrete
+              </li>
+            </ul>
+          </div>
         </div>
+
+        <hr className="mt-5" />
+
+        <section className="text-center mb-8">
+          <div className="h1 mt-7 font-weight-bold">
+            And that's it! 🎉
+          </div>
+
+          <p className="h4 mt-4">
+           We hope this gives you some ideas for what you can do to get your state
+           to zero emissions!
+          </p>
+        </section>
       </div>
     </Layout>
   )
 }
-
 export default StateDetailsPage
 
+/**
+ * The section for how to clean up a state's power grid
+ */
+function HowToCleanPowerSection ({
+  latestEmissions,
+  placeTitle,
+  powerPrcnt,
+}) {
+  return (
+    <div>
+      <p className="h3 mt-5">
+        <strong className="font-weight-bold">{powerPrcnt}%</strong> of
+        emissions in {placeTitle} comes from making power.
+      </p>
+
+      <div className="row mt-5">
+        { /* Make SingleBarChart full width on mobile */ }
+        <div className="col-12-med">
+          <SingleBarChart
+            emissionsData={latestEmissions}
+            activeKey='dirty_power' />
+        </div>
+
+        <div className="col">
+          <p className="h3 mt-5">
+            Specifically from coal and gas plants.
+          </p>
+
+          <p className="h3 mt-5">
+            To cut this pollution, we need to replace dirty power plants with
+            clean ones. (mostly wind and solar)
+          </p>
+        </div>
+      </div>
+
+      <p className="h3 mt-5">
+        And we need to do this for all <strong className="font-weight-bold">? coal plants in {placeTitle}</strong>
+      </p>
+
+      <p className="h3 mt-5">
+        ...and all <strong className="font-weight-bold">? gas plants</strong>.
+      </p>
+
+      <p className="h3 mt-5">
+        ...and help those workers find good jobs.
+      </p>
+
+      <p className="h3 mt-5">
+        But wait! Remember how we electrified all cars and buildings?
+      </p>
+
+      <p className="h3 mt-5">
+        Our machines don't pollute now, because they run on electricity!
+      </p>
+
+      <p className="h3 mt-5">
+        But that means we need to make more power for those new electric
+        machines - <strong className="font-weight-bold">twice</strong> as much power as we make now!
+      </p>
+
+      <p className="h3 mt-5">
+        And <strong className="font-weight-bold">all of it needs to be clean power!</strong>
+      </p>
+
+      <p className="h3 mt-5">
+        So to cut the climate pollution from our power, cars, and buildings we need to BUILD ? wind and solar farms. <br/>
+        (That's ? a year)
+      </p>
+
+      <p className="h4 mt-5 text-muted">
+        [insert animated map here]
+      </p>
+
+      <p className="h3 mt-7 font-weight-bold text-center">
+        That will solve another {powerPrcnt}% of the problem.
+      </p>
+
+      <div className="mt-5 d-flex justify-content-center">
+        <SingleBarChart
+          emissionsData={latestEmissions}
+          greenKeys={[ 'buildings', 'transportation', 'dirty_power' ]} />
+      </div>
+
+      <div className="action-panel">
+        <h3 className="h4 font-weight-bold">What should I do?</h3>
+
+        {/* TODO: Make these link somewhere */}
+        <ul className="mt-3 pl-4 mb-0">
+          <li>
+            <a href="http://example.com">Install solar panels and a battery in your building</a>
+          </li>
+          <li>
+            <a href="http://example.com">
+              Support the construction of grid-scale wind and solar
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 export const query = graphql`
-query PlaceQuery {
-  emissionsJson {
-    alabama {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
+query StateQuery($state: String) {
+  allBuildingsJson(filter: {state: {eq: $state}}) {
+    edges {
+      node {
+        buildings
+      }
     }
-    alaska {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
+  }
+  allEmissionsJson(filter: {state: {eq: $state}}) {
+    edges {
+      node {
+        emissionsByYear {
+          dirty_power
+          buildings
+          dumps_farms_industrial_other
+          transportation
+          year
+        }
+      }
     }
-    arizona {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    arkansas {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    california {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    colorado {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    connecticut {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    delaware {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    district_of_columbia {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    florida {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    georgia {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    hawaii {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    idaho {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    illinois {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    indiana {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    iowa {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    kansas {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    kentucky {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    louisiana {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    maine {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    maryland {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    massachusetts {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    michigan {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    minnesota {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    mississippi {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    missouri {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    montana {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    nebraska {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    nevada {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    new_hampshire {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    new_jersey {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    new_mexico {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    new_york {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    north_carolina {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    north_dakota {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    ohio {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    oklahoma {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    oregon {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    pennsylvania {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    rhode_island {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    south_carolina {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    south_dakota {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    tennessee {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    texas {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    united_states {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    utah {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    vermont {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    virginia {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    washington {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    west_virginia {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    wisconsin {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
-    }
-    wyoming {
-      year
-      dirty_power
-      buildings
-      transportation
-      dumps_farms_industrial_other
+  }
+  allVehiclesJson(filter: {state: {eq: $state}}) {
+    edges {
+      node {
+        Cars_All
+        EV_Registration
+      }
     }
   }
 }
+
 `
