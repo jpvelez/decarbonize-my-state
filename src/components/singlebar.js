@@ -1,5 +1,5 @@
 import React from "react"
-import { BarChart, Bar, LabelList, ReferenceArea, YAxis } from "recharts"
+import { BarChart, Bar, LabelList, ReferenceArea, YAxis, Cell } from "recharts"
 
 /* Calculate a rounded percentage given a value and the total it's out of */
 const getPct = (value, total) => { return Math.round((value/total)*100) }
@@ -10,12 +10,71 @@ const getLabel = (entry, total, field, label) => {
 }
 
 /**
- * Create constants for bar and graph dimensions for calculating lines
+ * Create constants for bar and graph dimensions for calculating lines,
+ * Configuration for the colors for each bar graph bar as well as their data
+ * key and label text
  */
-let BarWidth
-let GraphWidth
-let GraphHeight
 
+const BarsConfig = {
+  other: {
+    key: 'dumps_farms_industrial_other',
+    text: 'Farms, Industrial & Other',
+    shortText: 'Other',
+    passiveFill: '#98886c',
+    // This categoy cannot be electrified so make the greenFill red to be
+    // clearly bad
+    greenFill: '#cabd98',
+  },
+  power: {
+    key: 'dirty_power',
+    text: 'Dirty Power',
+    shortText: 'Power',
+    passiveFill: '#dcdcdc',
+    activeFill: '#a3d7a4',
+  },
+  transport: {
+    key: 'transportation',
+    text: 'Transportation',
+    shortText: 'Transport',
+    passiveFill: '#a6a6a6',
+    activeFill: '#4caf50',
+  },
+  buildings: {
+    key: 'buildings',
+    text: 'Buildings',
+    shortText: 'Buildings',
+    passiveFill: '#c2c2c2',
+    activeFill: '#6ebf70',
+  }
+}
+
+const homePageConfig = {
+  LabelPosition: 'insideTopLeft',
+  BarWidth: 275,
+  GraphWidth: 375,
+  GraphHeight: 350,
+  GraphMargin: {
+    top: 0,
+    right: 100,
+    left: 0,
+    bottom: 0
+  }
+}
+
+const statePageConfig = {
+  LabelPosition: 'right',
+  BarWidth: 150,
+  GraphWidth: 400,
+  GraphHeight: 350,
+  GraphMargin: {
+    top: 10,
+    right: 200,
+    left: 0,
+    bottom: 0
+  }
+}
+
+const LabelOffset = 12;
 /**
  * A vertically stacked bar chart intended to show the groups of different
  * emissions. Has the following input props:
@@ -41,7 +100,7 @@ let GraphHeight
  * @param {Array<string>} greenKeys Optional array of keys to show in green,
  * indicating they have been electrified.
  */
-export default function SingleBarChart ({ emissionsData, homeView, activeKey, greenKeys }) {
+function SingleBarChart ({ emissionsData, homeView, activeKey, greenKeys }) {
   // sum all emissions fields except year
   const emissionsTotal = Object.entries(emissionsData)
     .filter(([key,_val]) => key !== 'year')
@@ -52,96 +111,16 @@ export default function SingleBarChart ({ emissionsData, homeView, activeKey, gr
   // and then doing an inverse
   const nonElectrificationPrcnt = getPct(emissionsData.dumps_farms_industrial_other, emissionsTotal)
   const electrificationPrcnt = 100 * (1 - (nonElectrificationPrcnt / 100))
-
   const activeFill = '#ff5722'
-
-  /**
-   * Configuration for the colors for each bar graph bar as well as their data
-   * key and label text
-   */
-  const BarsConfig = {
-    other: {
-      key: 'dumps_farms_industrial_other',
-      text: 'Farms, Industrial & Other',
-      fill: '#98886c',
-      // This categoy cannot be electrified so make the greenFill red to be
-      // clearly bad
-      greenFill: '#cabd98',
-    },
-    transport: {
-      key: 'transportation',
-      text: 'Transportation',
-      fill: '#a6a6a6',
-      greenFill: '#4caf50',
-    },
-    buildings: {
-      key: 'buildings',
-      text: 'Buildings',
-      fill: '#c2c2c2',
-      greenFill: '#6ebf70',
-    },
-    power: {
-      key: 'dirty_power',
-      text: 'Dirty Power',
-      fill: '#dcdcdc',
-      greenFill: '#a3d7a4',
-    }
-  }
-
-  const LabelOffset = 12
-  let LabelPosition = 'right'
-  let GraphMargin = {
-    top: 10,
-    right: 200,
-    left: 0,
-    bottom: 0
-  }
-
-  BarWidth = 150
-  GraphWidth = 400
-  GraphHeight = 350
-
   // Apply custom styling with interior labels for homepage chart
-  if (homeView) {
-    LabelPosition = 'insideTopLeft'
-    BarWidth = 275
-    GraphWidth = 375
-    GraphMargin = {
-      top: 0,
-      right: 100,
-      left: 0,
-      bottom: 0
-    }
-  }
-
-  // If on state details, shorten text labels
-  if (!homeView) {
-    BarsConfig.power.text = 'Power'
-    BarsConfig.transport.text = 'Transport'
-    BarsConfig.other.text = 'Other'
-  }
-
-  // If greenKeys are specified, switch those bars' fill to their greenFill color
-  if (greenKeys) {
-    Object.values(BarsConfig).forEach(config => {
-      if (greenKeys.includes(config.key)) {
-        config.fill = config.greenFill
-      }
-    })
-  }
-
-  // If activeKey is specified, switch that bar's fill to its activeKey color
-  if (activeKey) {
-    const activeConfig = Object.values(BarsConfig)
-      .find(config => config.key === activeKey)
-
-    if (activeConfig) {
-      activeConfig.fill = activeFill
-    }
-    else {
-      console.error('Bad activeKey!', activeKey)
-    }
-  }
+  const config = homeView ? homePageConfig : statePageConfig
+  const {
+    LabelPosition,
+    BarWidth,
+    GraphWidth,
+    GraphHeight,
+    GraphMargin
+  } = config
 
   return (
     <div className="single-bar-chart">
@@ -154,68 +133,40 @@ export default function SingleBarChart ({ emissionsData, homeView, activeKey, gr
       >
         { /* Make sure the y-axis matches the data exactly so the bars take up 100% of the height */ }
         <YAxis domain={['dataMin', 'dataMax']} hide={ true } />
-        {
-          // Only show other bar if it's non-zero
-          emissionsData[BarsConfig.other.key] &&
-            <Bar dataKey={ BarsConfig.other.key }
-              fill={ BarsConfig.other.fill }
-              stackId="main">
-              <LabelList
-                valueAccessor={entry =>
-                  getLabel(entry, emissionsTotal, BarsConfig.other.key, BarsConfig.other.text)}
-                position={LabelPosition}
-                offset={LabelOffset}/>
-            </Bar>
+        {Object.entries(BarsConfig).map(
+          ([_objectKey, {key, text, shortText, activeFill, passiveFill}]) => {
+            const displayText = homeView ? shortText : text
+            const fillColor = greenKeys && greenKeys.includes(key) ? activeFill : passiveFill
+            
+            return emissionsData[key] 
+              ? <Bar 
+                key={key}
+                dataKey={key}
+                stackId="main"
+                >
+                  <Cell cursor="pointer" fill={fillColor} />
+                  <LabelList
+                    valueAccessor={entry =>
+                      getLabel(entry, emissionsTotal, key, displayText)}
+                    position={LabelPosition}
+                    offset={LabelOffset}/>
+                </Bar>
+              : null
+            }
+          )
         }
-        {
-          // Only show power bar if it's non-zero
-          emissionsData[BarsConfig.power.key] &&
-            <Bar dataKey={ BarsConfig.power.key }
-              fill={ BarsConfig.power.fill }
-              stackId="main">
-              <LabelList
-                valueAccessor={entry =>
-                  getLabel(entry, emissionsTotal, BarsConfig.power.key, BarsConfig.power.text)}
-                position={LabelPosition}
-                offset={LabelOffset}/>
-            </Bar>
-        }
-        {
-          // Only show transport bar if it's non-zero
-          emissionsData[BarsConfig.transport.key] &&
-            <Bar dataKey={ BarsConfig.transport.key }
-              fill={ BarsConfig.transport.fill }
-              stackId="main">
-              <LabelList
-                valueAccessor={entry =>
-                  getLabel(entry, emissionsTotal, BarsConfig.transport.key, BarsConfig.transport.text)}
-                position={LabelPosition}
-                offset={LabelOffset}/>
-            </Bar>
-        }
-        {
-          // Only show buildings bar if it's non-zero
-          emissionsData[BarsConfig.buildings.key] &&
-            <Bar dataKey={ BarsConfig.buildings.key }
-              fill={ BarsConfig.buildings.fill }
-              stackId="main">
-              <LabelList
-                valueAccessor={entry =>
-                  getLabel(entry, emissionsTotal, BarsConfig.buildings.key, BarsConfig.buildings.text)}
-                position={LabelPosition}
-                offset={LabelOffset}/>
-            </Bar>
-        }
-
         <ReferenceArea shape={
           <ElectrificationLines
             electrificationPrcnt={electrificationPrcnt}
-            homeView={homeView} />
+            homeView={homeView}
+            config={config} />
         }/>
       </BarChart>
     </div>
   )
 }
+
+export default React.memo(SingleBarChart)
 
 /**
  * A helper function that generates our electrification marker lines, which
@@ -227,10 +178,15 @@ export default function SingleBarChart ({ emissionsData, homeView, activeKey, gr
  * 3. A vertical line connecting the right endpoints of #1 and #2
  * 4. A horizontal line going right from the center point of #3
  */
-function ElectrificationLines ({ electrificationPrcnt, homeView }) {
+function ElectrificationLines ({ electrificationPrcnt, homeView, config }) {
   if (!homeView) {
     return null
   }
+
+  const {
+    BarWidth,
+    GraphHeight
+  } = config
 
   const LineWidth = 50
 
